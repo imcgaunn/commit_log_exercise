@@ -1,3 +1,4 @@
+from collections import namedtuple
 # data is a sequence of bytes. key should be a function of which writer
 # wrote the data. sequence is a monotonically increasing sequence number
 # that is tracked separately for each key. e.g. subsequence for A writers
