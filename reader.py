@@ -8,5 +8,5 @@ def read_batch(reads_inbox, n_messages=DEFAULT_CHUNK_SIZE):
     pass
 
 
-def process_read(read_req):
+def process_read(read_req, log_array):
     print(read_req)

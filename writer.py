@@ -2,6 +2,10 @@
 
 import random
 import string
+import logging
+
+logging.basicConfig()
+logger = logging.getLogger('writer-module')
 
 
 def submit_write(write_q):
@@ -14,8 +18,17 @@ def submit_write(write_q):
     return write_q.put((chosen_key, dummy_data))
 
 
-def process_write(write_req, logfile):
-    print('got write req:')
+def submit_many_writes(write_q):
+    for i in range(1000):
+        submit_write(write_q)
+
+
+def process_write(write_req, log_array, seq_number_table):
     if write_req:
-        # handle any write request here in broker process, which has access to the log file
-        return logfile.write(f'{write_req.key}||{write_req.data}||{write_req.seq}')
+        key, data = write_req
+        try:
+            seq_number_table[key] += 1
+        except (KeyError, IndexError):
+            seq_number_table[key] = 1
+        log_array.append((key, data, seq_number_table[key]))
+        print(f'wrote: {(key, data, seq_number_table[key])} to log')
