@@ -9,7 +9,6 @@ logger = logging.getLogger('writer-module')
 
 
 def submit_write(write_q):
-    # randomly pick a letter between A and A + N_WRITE_PROCESSES
     letter_range = list(string.ascii_uppercase)
     chosen_key = random.choice(letter_range)
     dummy_data = b'somestuff'

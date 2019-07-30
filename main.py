@@ -11,26 +11,23 @@ import string
 import config
 import reader
 import writer
-import message
-
 
 SEQ_NUMBER_TABLE = {} # stores associations of keys to last seq number written
 READER_CHECKPOINT_TABLE = {} # stores associations of reader to key and last seq processed
 LOG_ARRAY = []
 
-def process_write_reqs(write_q):
+def process_write_reqs(write_q, max_wait=5):
     global LOG_ARRAY
     global SEQ_NUMBER_TABLE
     while True:
         while not write_q.empty():
             try:
-                req = write_q.get()
+                req = write_q.get(timeout=max_wait)
                 writer.process_write(req, LOG_ARRAY, SEQ_NUMBER_TABLE)
             except Exception:
-                print(f'exception while processing write')
+                print('caught exception processing write')
 
-
-def start_writers(write_q, n_writers=N_WRITE_PROCESSES):
+def start_writers(write_q, n_writers=4):
     writer_procs = []
     for i in range(n_writers):
         p = multiprocessing.Process(target=writer.submit_many_writes, args=(write_q,))
@@ -49,7 +46,7 @@ def start_reader(read_q):
     last_processed_i = READER_CHECKPOINT_TABLE[k]
 
 
-def start_readers(read_q, n_readers=N_READ_PROCESSES):
+def start_readers(read_q, n_readers=4):
     reader_procs = []
     # for i in range(n_readers):
         # p = multiprocessing.Process(target=reader.read_batch)
@@ -59,7 +56,7 @@ def start_readers(read_q, n_readers=N_READ_PROCESSES):
 
 
 def start_broker(read_q, write_q):
-    p = multiprocessing.Process(target=process_reqs, args=(read_q, write_q))
+    p = multiprocessing.Process(target=process_write_reqs, args=(write_q,))
     p.start()
     return p
 
@@ -74,14 +71,16 @@ if __name__ == '__main__':
     # these will be processed by a broker process that understands how to write
     # to the commit log, which is represented as an array of tuples [(key, val, seq)].
     broker_proc = start_broker(reads_inbox, writes_inbox)
-    writer_procs = start_writers(writes_inbox)
+    writer_procs = start_writers(writes_inbox,
+                                 n_writers=config_opts['n_write_processes'])
 
     # start reader processes which will non-destructively read from the commit log by submitting
     # requests to the broker and waiting for results.
     # as readers come online, they will checkpoint to an in-memory database which maintains
     # which producer the reader is associated with, and the last sequence number it successfully
     # processed.
-    reader_procs = start_readers(reads_inbox)
+    reader_procs = start_readers(reads_inbox,
+                                 n_readers=config_opts['n_read_processes'])
 
     for p in writer_procs:
         p.join()
