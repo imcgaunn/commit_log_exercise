@@ -8,18 +8,14 @@ import logging
 import random
 import string
 
+import config
 import reader
 import writer
 import message
 
 
-MAX_WRITE_Q_ENTRIES = 16
-MAX_READ_Q_ENTRIES = 16
-N_WRITE_PROCESSES = 4
-N_READ_PROCESSES = 4
-
 SEQ_NUMBER_TABLE = {} # stores associations of keys to last seq number written
-READER_CHECKPOINT_TABLE = {} # stores associations of reader to key and last seq processed 
+READER_CHECKPOINT_TABLE = {} # stores associations of reader to key and last seq processed
 LOG_ARRAY = []
 
 def process_write_reqs(write_q):
@@ -41,7 +37,7 @@ def start_writers(write_q, n_writers=N_WRITE_PROCESSES):
         writer_procs.append(p)
         p.start()
     return writer_procs
-    
+
 
 def start_reader(read_q):
     # when a reader starts up, it should determine which key
@@ -51,7 +47,7 @@ def start_reader(read_q):
     avail_keys = list(SEQ_NUMBER_TABLE.keys())
     k = random.choice(avail_keys)
     last_processed_i = READER_CHECKPOINT_TABLE[k]
-    
+
 
 def start_readers(read_q, n_readers=N_READ_PROCESSES):
     reader_procs = []
@@ -69,22 +65,23 @@ def start_broker(read_q, write_q):
 
 
 if __name__ == '__main__':
+    config_opts = config.read_config()
     manager = multiprocessing.Manager()
-    writes_inbox = manager.Queue(MAX_WRITE_Q_ENTRIES)
-    reads_inbox = manager.Queue(MAX_READ_Q_ENTRIES)
-    
+    writes_inbox = manager.Queue(config_opts['max_read_q_entries'])
+    reads_inbox = manager.Queue(config_opts['max_write_q_entries'])
+
     # start writer processes which will submit requests to the writes 'inbox'.
     # these will be processed by a broker process that understands how to write
     # to the commit log, which is represented as an array of tuples [(key, val, seq)].
     broker_proc = start_broker(reads_inbox, writes_inbox)
     writer_procs = start_writers(writes_inbox)
-    reader_procs = []  # eventually this will actually be a function returning reader handles
 
-    # start reader processes which will non-destructively read from the commit log by submitting 
+    # start reader processes which will non-destructively read from the commit log by submitting
     # requests to the broker and waiting for results.
     # as readers come online, they will checkpoint to an in-memory database which maintains
     # which producer the reader is associated with, and the last sequence number it successfully
     # processed.
+    reader_procs = start_readers(reads_inbox)
 
     for p in writer_procs:
         p.join()

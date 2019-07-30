@@ -1,0 +1,6 @@
+{
+    "max_write_q_entries": 16,
+    "max_read_q_entries": 16,
+    "n_write_processes": 4,
+    "n_read_processes": 4
+}
